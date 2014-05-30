@@ -84,3 +84,24 @@ class Headers(collections.Mapping):
             ('x-dnsme-apiKey', self._api_key),
             ('x-dnsme-hmac', h),
             ('x-dnsme-requestDate', t))
+
+
+class DNSMadeEasyAPI(hammock.Hammock):
+    ENTRY_POINT_LIVE = 'https://api.dnsmadeeasy.com/V2.0'
+    ENTRY_POINT_SANDBOX = 'https://sandbox.dnsmadeeasy.com'
+
+    def __init__(self, api_key, api_secret, sandbox = False):
+        """Creates a DNSMadeEasyAPI instance.
+
+        This object works just like a :class:`~hammock.Hammock` instance, but
+        also sets the correct request headers based on ``api_key`` and
+        ``api_secret``.
+
+        :param str api_key: The DNSMadeEasy API key.
+
+        :param str api_secret: The DNSMadeEasy secret.
+        """
+        super(DNSMadeEasyAPI, self).__init__(
+            self.ENTRY_POINT_SANDBOX if sandbox else self.ENTRY_POINT_LIVE,
+            headers = Headers(api_key, api_secret),
+            verify = not sandbox)
