@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <http://www.gnu.org/licenses/>.
 
+import json
 import re
 import requests
 
@@ -161,7 +162,23 @@ class DNSMadeEasyDNSDriver(DNSDriver):
         raise NotImplementedError()
 
     def create_zone(self, domain, type = 'master', ttl = None, extra = None):
-        raise NotImplementedError()
+        r = self._api.dns.managed.POST(
+            data = json.dumps({
+                'names': [domain]}),
+            headers = {
+                'Content-Type': 'application/json'})
+
+        try:
+            self._raise_for_response(r)
+            return self._to_zone(r.json())
+
+        except self.ParsedError as e:
+            code, message = e.args
+            if code == 1 or code == 2:
+                raise ZoneAlreadyExistsError(value = domain, driver = self,
+                    zone_id = -1)
+            else:
+                raise
 
     def create_record(self, name, zone, type, data, extra = None):
         raise NotImplementedError()

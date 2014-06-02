@@ -7,7 +7,8 @@ import time
 import types
 
 from libcloud.common.types import LibcloudError
-from libcloud.dns.types import ZoneDoesNotExistError
+from libcloud.dns.base import Zone
+from libcloud.dns.types import ZoneDoesNotExistError, ZoneAlreadyExistsError
 from libcloud.dns.providers import get_driver
 
 from dnsmadeeasy.driver import DNSMadeEasyDNSDriver, \
@@ -103,3 +104,58 @@ def DNSMadeEasyDNSDriver_get_zone0(d):
     """Tests that DNSMadeEasyDNSDriver.get_zone fails for invalid zone ID"""
     with assert_exception(ZoneDoesNotExistError):
         d.get_zone('__invalid__')
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_get_zone1(d):
+    """Tests that DNSMadeEasyDNSDriver.get_zone returns the same value as
+    create_zone"""
+    domain = next(domain_names)
+
+    zone1 = d.create_zone(domain)
+    zone2 = d.get_zone(zone1.id)
+
+    for a in ('id', 'domain', 'type', 'ttl'):
+        assert_eq(
+            getattr(zone1, a),
+            getattr(zone2, a))
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_delete_zone0(d):
+    """Tests that DNSMadeEasyDNSDriver.delete_zone fails for invalid zone ID"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    remove_zones()
+
+    with assert_exception(ZoneDoesNotExistError):
+        d.delete_zone(zone)
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_create_zone0(d):
+    """Tests that DNSMadeEasyDNSDriver.create_zone returns a valid zone"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    wait_duration = 2
+    while wait_duration <= 32:
+        time.sleep(wait_duration)
+        if any(z.domain == zone.domain for z in d.list_zones()):
+            return
+        wait_duration *= 2
+
+    assert False, \
+        'The newly created zone was not included in the zone listing'
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_create_zone1(d):
+    """Tests that DNSMadeEasyDNSDriver.create_zone fails when creating an
+    already existing domain"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    with assert_exception(ZoneAlreadyExistsError):
+        d.create_zone(domain)
