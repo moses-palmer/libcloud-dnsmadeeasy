@@ -19,7 +19,7 @@ import re
 import requests
 
 from libcloud.common.types import LibcloudError
-from libcloud.dns.base import DNSDriver, Zone
+from libcloud.dns.base import DNSDriver, Record, Zone
 from libcloud.dns.providers import set_driver
 from libcloud.dns.types import RecordType, ZoneAlreadyExistsError, \
     ZoneDoesNotExistError
@@ -110,6 +110,44 @@ class DNSMadeEasyDNSDriver(DNSDriver):
 
             raise
 
+    def _to_full_record_name(self, domain, name = None):
+        """Converts a domain name and record name to a full record name.
+
+        If ``name`` is empty, it is considered to be the root record for the
+        domain, and ``domain`` is returned, otherwise ``name.domain``´is
+        returned.
+
+        :param str domain: The domain name.
+
+        :param name: The record name.
+        :type name: str or None
+
+        :return the full record name
+        :rtype: str
+        """
+        if name:
+            return '%s.%s' % (name, domain)
+        else:
+            return domain
+
+    def _to_partial_record_name(self, name):
+        """Converts a record name to a partial record name.
+
+        If ``name`` is empty, it is considered to be the root record for the
+        domain, and ``None`` is returned for consistency with other drivers.
+
+        :param name: The record name.
+        :type name: str or None
+
+        :return the record name
+        :rtype: str or None
+        """
+        # Map root names to None to be consistent with other drivers
+        if not name:
+            return None
+        else:
+            return name
+
     def _to_zone(self, item):
         """Converts a DNSMadeEasy zone response item to a ``Zone`` instance.
 
@@ -128,6 +166,31 @@ class DNSMadeEasyDNSDriver(DNSDriver):
                 for key, value in item.items()
                 if not key in ('id', 'name')})
 
+    def _to_record(self, item, zone):
+        """Converts a DNSMadeEasy record response item to a ``Record`` instance.
+
+        :param dict item: The response item.
+
+        :param libcloud.dns.base.Zone zone: The zone to which the record
+            belongs.
+
+        :return: a record
+        :rtype: libcloud.dns.base.Record
+        """
+        extra = {key: value
+            for key, value in item.items()
+            if not key in ('id', 'name', 'type', 'value')}
+        extra['fqdn'] = self._to_full_record_name(zone.domain, item['name'])
+
+        return Record(
+            id = str(item['id']),
+            name = self._to_partial_record_name(item['name']),
+            type = item['type'].upper(),
+            data = item['value'],
+            zone = zone,
+            driver = self,
+            extra = extra)
+
     def __init__(self, api_key, api_secret, sandbox = False):
         self._api = DNSMadeEasyAPI(api_key, api_secret, sandbox)
 
@@ -143,7 +206,12 @@ class DNSMadeEasyDNSDriver(DNSDriver):
             for item in items]
 
     def list_records(self, zone):
-        raise NotImplementedError()
+        r = self._api.dns.managed(zone.id).records.GET()
+        self._raise_for_response(r)
+
+        items = r.json()['data']
+        return [self._to_record(item, zone)
+            for item in items]
 
     def get_zone(self, zone_id):
         r = self._api.dns.managed(zone_id).GET()

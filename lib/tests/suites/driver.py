@@ -159,3 +159,13 @@ def DNSMadeEasyDNSDriver_create_zone1(d):
     zone = d.create_zone(domain)
     with assert_exception(ZoneAlreadyExistsError):
         d.create_zone(domain)
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_list_records0(d):
+    """Tests that DNSMadeEasyDNSDriver.list_records returns a sequence"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    assert isinstance(d.list_records(zone), types.ListType), \
+        'DNSMadeEasyDNSDriver.list_records did not return a list'
