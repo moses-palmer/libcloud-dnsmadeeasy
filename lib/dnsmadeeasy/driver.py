@@ -20,7 +20,7 @@ import requests
 from libcloud.common.types import LibcloudError
 from libcloud.dns.base import DNSDriver, Zone
 from libcloud.dns.providers import set_driver
-from libcloud.dns.types import RecordType
+from libcloud.dns.types import RecordType, ZoneDoesNotExistError
 
 from .api import DNSMadeEasyAPI
 
@@ -144,7 +144,17 @@ class DNSMadeEasyDNSDriver(DNSDriver):
         raise NotImplementedError()
 
     def get_zone(self, zone_id):
-        raise NotImplementedError()
+        r = self._api.dns.managed(zone_id).GET()
+        try:
+            self._raise_for_response(r)
+            return self._to_zone(r.json())
+
+        except requests.exceptions.HTTPError as e:
+            if r.status_code == 404:
+                raise ZoneDoesNotExistError(
+                    value = '', driver = self, zone_id = zone_id)
+            else:
+                raise
 
     def get_record(self, zone_id, record_id):
         raise NotImplementedError()

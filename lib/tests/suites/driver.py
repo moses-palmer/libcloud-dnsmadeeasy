@@ -5,6 +5,7 @@ import functools
 import sys
 import types
 
+from libcloud.dns.types import ZoneDoesNotExistError
 from libcloud.dns.providers import get_driver
 
 from dnsmadeeasy.driver import DNSMadeEasyDNSDriver
@@ -47,3 +48,10 @@ def DNSMadeEasyDNSDriver_list_zones0(d):
     """Tests that DNSMadeEasyDNSDriver.list_zones returns a sequence"""
     assert isinstance(d.list_zones(), types.ListType), \
         'DNSMadeEasyDNSDriver.list_zones did not return a list'
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_get_zone0(d):
+    """Tests that DNSMadeEasyDNSDriver.get_zone fails for invalid zone ID"""
+    with assert_exception(ZoneDoesNotExistError):
+        d.get_zone('__invalid__')
