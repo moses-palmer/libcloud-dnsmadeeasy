@@ -18,7 +18,7 @@ import re
 import requests
 
 from libcloud.common.types import LibcloudError
-from libcloud.dns.base import DNSDriver
+from libcloud.dns.base import DNSDriver, Zone
 from libcloud.dns.providers import set_driver
 from libcloud.dns.types import RecordType
 
@@ -108,6 +108,24 @@ class DNSMadeEasyDNSDriver(DNSDriver):
 
             raise
 
+    def _to_zone(self, item):
+        """Converts a DNSMadeEasy zone response item to a ``Zone`` instance.
+
+        :param dict item: The response item.
+
+        :return: a zone
+        :rtype: libcloud.dns.base.Zone
+        """
+        return Zone(
+            id = str(item['id']),
+            domain = item['name'],
+            type = 'master',
+            ttl = None,
+            driver = self,
+            extra = {key: value
+                for key, value in item.items()
+                if not key in ('id', 'name')})
+
     def __init__(self, api_key, api_secret, sandbox = False):
         self._api = DNSMadeEasyAPI(api_key, api_secret, sandbox)
 
@@ -115,7 +133,12 @@ class DNSMadeEasyDNSDriver(DNSDriver):
         return list(self.RECORD_TYPE_MAP.keys())
 
     def list_zones(self):
-        raise NotImplementedError()
+        r = self._api.dns.managed.GET()
+        self._raise_for_response(r)
+
+        items = r.json()['data']
+        return [self._to_zone(item)
+            for item in items]
 
     def list_records(self, zone):
         raise NotImplementedError()

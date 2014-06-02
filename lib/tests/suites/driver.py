@@ -40,3 +40,10 @@ def DNSMadeEasyDNSDriver_registered():
     assert_eq(
         Driver,
         DNSMadeEasyDNSDriver)
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_list_zones0(d):
+    """Tests that DNSMadeEasyDNSDriver.list_zones returns a sequence"""
+    assert isinstance(d.list_zones(), types.ListType), \
+        'DNSMadeEasyDNSDriver.list_zones did not return a list'
