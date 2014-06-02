@@ -24,6 +24,16 @@ def drivertest(f):
     return test(inner)
 
 
+def domain_names():
+    """Yields a list of domain names unique for this session"""
+    i = 1
+    while True:
+        yield 'example%02d.com' % i
+        i += 1
+
+domain_names = domain_names()
+
+
 @test
 def DNSMadeEasyDNSDriver_registered():
     """Tests that the driver is registered"""
