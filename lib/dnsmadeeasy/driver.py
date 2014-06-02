@@ -20,7 +20,8 @@ import requests
 from libcloud.common.types import LibcloudError
 from libcloud.dns.base import DNSDriver, Zone
 from libcloud.dns.providers import set_driver
-from libcloud.dns.types import RecordType, ZoneDoesNotExistError
+from libcloud.dns.types import RecordType, ZoneAlreadyExistsError, \
+    ZoneDoesNotExistError
 
 from .api import DNSMadeEasyAPI
 
@@ -166,7 +167,17 @@ class DNSMadeEasyDNSDriver(DNSDriver):
         raise NotImplementedError()
 
     def delete_zone(self, zone):
-        raise NotImplementedError()
+        r = self._api.dns.managed(zone.id).DELETE()
+
+        try:
+            self._raise_for_response(r)
+
+        except requests.exceptions.HTTPError as e:
+            if r.status_code == 404:
+                raise ZoneDoesNotExistError(
+                    value = zone, driver = self, zone_id = zone.id)
+            else:
+                raise
 
     def delete_record(self, record):
         raise NotImplementedError()

@@ -3,12 +3,15 @@ from . import API_KEY, API_SECRET
 
 import functools
 import sys
+import time
 import types
 
+from libcloud.common.types import LibcloudError
 from libcloud.dns.types import ZoneDoesNotExistError
 from libcloud.dns.providers import get_driver
 
-from dnsmadeeasy.driver import DNSMadeEasyDNSDriver
+from dnsmadeeasy.driver import DNSMadeEasyDNSDriver, \
+    DNSMadeEasyRateLimitExceededError
 
 Driver = get_driver('dnsmadeeasy')
 
@@ -33,6 +36,51 @@ def domain_names():
         i += 1
 
 domain_names = domain_names()
+
+
+@test.setup
+@test.teardown
+def remove_zones():
+    """Removes all zones after the test suite has run and waits for them to
+    actually be deleted"""
+    driver = Driver(API_KEY, API_SECRET, True)
+
+    printf('Removing all zones')
+
+    wait_duration = 8
+    while True:
+        remaining = driver.list_zones()
+        needs_update = False
+
+        for zone in remaining:
+            try:
+                # Only touch zones with no pending action
+                if zone.extra.get('pendingActionId', 0) == 0:
+                    driver.delete_zone(zone)
+                    printf('Scheduled dletion of zone %s', zone.domain)
+                    needs_update = True
+
+            except DNSMadeEasyRateLimitExceededError as e:
+                printf('Rate limit exceeded (0 of %d requests remaining); '
+                    'terminating prematuely', e.request_limit)
+                return
+
+            except LibcloudError as e:
+                printf('Failed to remove zone %s: %s',
+                    zone.domain, str(e.value))
+
+        # Update the list only when needed
+        if needs_update:
+            remaining = driver.list_zones()
+
+        if remaining:
+            printf('Zones %s remaining, waiting %d seconds...',
+                ', '.join(zone.domain for zone in remaining), wait_duration)
+            time.sleep(wait_duration)
+            if wait_duration < 32:
+                wait_duration *= 2
+        else:
+            return True
 
 
 @test
