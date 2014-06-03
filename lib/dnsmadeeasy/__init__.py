@@ -15,3 +15,5 @@
 # this program. If not, see <http://www.gnu.org/licenses/>.
 
 import _info as info
+
+import driver
