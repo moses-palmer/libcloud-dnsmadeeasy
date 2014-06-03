@@ -22,7 +22,7 @@ from libcloud.common.types import LibcloudError
 from libcloud.dns.base import DNSDriver, Record, Zone
 from libcloud.dns.providers import set_driver
 from libcloud.dns.types import RecordType, ZoneAlreadyExistsError, \
-    ZoneDoesNotExistError, RecordDoesNotExistError
+    ZoneDoesNotExistError, RecordAlreadyExistsError, RecordDoesNotExistError
 
 from .api import DNSMadeEasyAPI
 
@@ -264,7 +264,28 @@ class DNSMadeEasyDNSDriver(DNSDriver):
                 raise
 
     def create_record(self, name, zone, type, data, extra = None):
-        raise NotImplementedError()
+        record = {
+            'name': name,
+            'type': type,
+            'value': data}
+        record.update(extra or {})
+
+        r = self._api.dns.managed(zone.id).records.POST(
+            data = json.dumps(record),
+            headers = {
+                'Content-Type': 'application/json'})
+        try:
+            self._raise_for_response(r)
+            return self._to_record(r.json(), zone)
+
+        except LibcloudError as e:
+            # There is unfortunately currently no way other that checking the
+            # error message to know whether the record already exits
+            if any('exists' in error for error in e.value):
+                raise RecordAlreadyExistsError(value = name, driver = self,
+                    record_id = -1)
+            else:
+                raise
 
     def delete_zone(self, zone):
         r = self._api.dns.managed(zone.id).DELETE()

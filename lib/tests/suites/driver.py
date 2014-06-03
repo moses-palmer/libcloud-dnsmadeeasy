@@ -9,7 +9,7 @@ import types
 from libcloud.common.types import LibcloudError
 from libcloud.dns.base import Zone
 from libcloud.dns.types import ZoneDoesNotExistError, ZoneAlreadyExistsError
-from libcloud.dns.types import RecordDoesNotExistError
+from libcloud.dns.types import RecordDoesNotExistError, RecordAlreadyExistsError
 from libcloud.dns.providers import get_driver
 
 from dnsmadeeasy.driver import DNSMadeEasyDNSDriver, \
@@ -187,3 +187,47 @@ def DNSMadeEasyDNSDriver_get_record1(d):
     zone = d.create_zone(domain)
     with assert_exception(RecordDoesNotExistError):
         d.get_record(zone.id, '__invalid__')
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_get_record2(d):
+    """Tests that DNSMadeEasyDNSDriver.get_record returns the same value as
+    create_record"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    record1 = d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+        extra = {'ttl': 1000})
+    record2 = d.get_record(zone.id, record1.id)
+
+    for a in ('id', 'name', 'type', 'data', 'extra'):
+        assert_eq(
+            getattr(record1, a),
+            getattr(record2, a))
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_Zone_create_record0(d):
+    """Tests that DNSMadeEasyDNSDriver.create_record returns a valid record"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    record = d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+        extra = {'ttl': 1000})
+
+    assert any(r.data == record.data for r in zone.list_records()), \
+        'The newly created record was not included in the record listing'
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_create_record1(d):
+    """Tests that DNSMadeEasyDNSDriver.create_record fails when creating an
+    already existing record"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    record = d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+        extra = {'ttl': 1000})
+    with assert_exception(RecordAlreadyExistsError):
+        d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+            extra = {'ttl': 1000})
