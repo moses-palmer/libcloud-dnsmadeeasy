@@ -301,7 +301,16 @@ class DNSMadeEasyDNSDriver(DNSDriver):
                 raise
 
     def delete_record(self, record):
-        raise NotImplementedError()
+        r = self._api.dns.managed(record.zone.id).records(record.id).DELETE()
+
+        try:
+            self._raise_for_response(r)
+        except:
+            if r.status_code == 404:
+                raise RecordDoesNotExistError(
+                    value = record, driver = self, record_id = record.id)
+            else:
+                raise
 
 
 set_driver('dnsmadeeasy', __name__, DNSMadeEasyDNSDriver.__name__)

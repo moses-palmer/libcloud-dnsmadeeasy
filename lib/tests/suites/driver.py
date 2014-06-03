@@ -231,3 +231,30 @@ def DNSMadeEasyDNSDriver_create_record1(d):
     with assert_exception(RecordAlreadyExistsError):
         d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
             extra = {'ttl': 1000})
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_delete_record0(d):
+    """Tests that DNSMadeEasyDNSDriver.delete_record succeeds for valid
+    record"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    record = d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+        extra = {'ttl': 1000})
+
+    d.delete_record(record)
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_delete_record1(d):
+    """Tests that DNSMadeEasyDNSDriver.delete_record fails for invalid record"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    record = d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+        extra = {'ttl': 1000})
+
+    d.delete_record(record)
+    with assert_exception(RecordDoesNotExistError):
+        d.delete_record(record)
