@@ -14,13 +14,15 @@
 # You should have received a copy of the GNU General Public License along with
 # this program. If not, see <http://www.gnu.org/licenses/>.
 
+import json
 import re
 import requests
 
 from libcloud.common.types import LibcloudError
-from libcloud.dns.base import DNSDriver
+from libcloud.dns.base import DNSDriver, Zone
 from libcloud.dns.providers import set_driver
-from libcloud.dns.types import RecordType
+from libcloud.dns.types import RecordType, ZoneAlreadyExistsError, \
+    ZoneDoesNotExistError
 
 from .api import DNSMadeEasyAPI
 
@@ -108,6 +110,24 @@ class DNSMadeEasyDNSDriver(DNSDriver):
 
             raise
 
+    def _to_zone(self, item):
+        """Converts a DNSMadeEasy zone response item to a ``Zone`` instance.
+
+        :param dict item: The response item.
+
+        :return: a zone
+        :rtype: libcloud.dns.base.Zone
+        """
+        return Zone(
+            id = str(item['id']),
+            domain = item['name'],
+            type = 'master',
+            ttl = None,
+            driver = self,
+            extra = {key: value
+                for key, value in item.items()
+                if not key in ('id', 'name')})
+
     def __init__(self, api_key, api_secret, sandbox = False):
         self._api = DNSMadeEasyAPI(api_key, api_secret, sandbox)
 
@@ -115,25 +135,66 @@ class DNSMadeEasyDNSDriver(DNSDriver):
         return list(self.RECORD_TYPE_MAP.keys())
 
     def list_zones(self):
-        raise NotImplementedError()
+        r = self._api.dns.managed.GET()
+        self._raise_for_response(r)
+
+        items = r.json()['data']
+        return [self._to_zone(item)
+            for item in items]
 
     def list_records(self, zone):
         raise NotImplementedError()
 
     def get_zone(self, zone_id):
-        raise NotImplementedError()
+        r = self._api.dns.managed(zone_id).GET()
+        try:
+            self._raise_for_response(r)
+            return self._to_zone(r.json())
+
+        except requests.exceptions.HTTPError as e:
+            if r.status_code == 404:
+                raise ZoneDoesNotExistError(
+                    value = '', driver = self, zone_id = zone_id)
+            else:
+                raise
 
     def get_record(self, zone_id, record_id):
         raise NotImplementedError()
 
     def create_zone(self, domain, type = 'master', ttl = None, extra = None):
-        raise NotImplementedError()
+        r = self._api.dns.managed.POST(
+            data = json.dumps({
+                'names': [domain]}),
+            headers = {
+                'Content-Type': 'application/json'})
+
+        try:
+            self._raise_for_response(r)
+            return self._to_zone(r.json())
+
+        except self.ParsedError as e:
+            code, message = e.args
+            if code == 1 or code == 2:
+                raise ZoneAlreadyExistsError(value = domain, driver = self,
+                    zone_id = -1)
+            else:
+                raise
 
     def create_record(self, name, zone, type, data, extra = None):
         raise NotImplementedError()
 
     def delete_zone(self, zone):
-        raise NotImplementedError()
+        r = self._api.dns.managed(zone.id).DELETE()
+
+        try:
+            self._raise_for_response(r)
+
+        except requests.exceptions.HTTPError as e:
+            if r.status_code == 404:
+                raise ZoneDoesNotExistError(
+                    value = zone, driver = self, zone_id = zone.id)
+            else:
+                raise
 
     def delete_record(self, record):
         raise NotImplementedError()
