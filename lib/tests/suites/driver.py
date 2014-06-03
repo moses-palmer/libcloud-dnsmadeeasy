@@ -9,6 +9,7 @@ import types
 from libcloud.common.types import LibcloudError
 from libcloud.dns.base import Zone
 from libcloud.dns.types import ZoneDoesNotExistError, ZoneAlreadyExistsError
+from libcloud.dns.types import RecordDoesNotExistError
 from libcloud.dns.providers import get_driver
 
 from dnsmadeeasy.driver import DNSMadeEasyDNSDriver, \
@@ -169,3 +170,20 @@ def DNSMadeEasyDNSDriver_list_records0(d):
     zone = d.create_zone(domain)
     assert isinstance(d.list_records(zone), types.ListType), \
         'DNSMadeEasyDNSDriver.list_records did not return a list'
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_get_record0(d):
+    """Tests that DNSMadeEasyDNSDriver.get_record fails for invalid zone ID"""
+    with assert_exception(ZoneDoesNotExistError):
+        d.get_record('__invalid__', '__invalid__')
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_get_record1(d):
+    """Tests that DNSMadeEasyDNSDriver.get_record fails for invalid record ID"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    with assert_exception(RecordDoesNotExistError):
+        d.get_record(zone.id, '__invalid__')

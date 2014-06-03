@@ -22,7 +22,7 @@ from libcloud.common.types import LibcloudError
 from libcloud.dns.base import DNSDriver, Record, Zone
 from libcloud.dns.providers import set_driver
 from libcloud.dns.types import RecordType, ZoneAlreadyExistsError, \
-    ZoneDoesNotExistError
+    ZoneDoesNotExistError, RecordDoesNotExistError
 
 from .api import DNSMadeEasyAPI
 
@@ -227,7 +227,22 @@ class DNSMadeEasyDNSDriver(DNSDriver):
                 raise
 
     def get_record(self, zone_id, record_id):
-        raise NotImplementedError()
+        # Get the Zone; this will raise ZoneDoesNotExistError if zone_id is
+        # invalid
+        zone = self.get_zone(zone_id)
+
+        r = self._api.dns.managed(zone.id).records.GET()
+        self._raise_for_response(r)
+
+        items = r.json()['data']
+        try:
+            return next(self._to_record(item, zone)
+                for item in items
+                if str(item['id']) == record_id)
+
+        except StopIteration:
+            raise RecordDoesNotExistError(
+                value = '', driver = self, record_id = record_id)
 
     def create_zone(self, domain, type = 'master', ttl = None, extra = None):
         r = self._api.dns.managed.POST(
