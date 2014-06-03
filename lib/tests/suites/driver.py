@@ -9,6 +9,7 @@ import types
 from libcloud.common.types import LibcloudError
 from libcloud.dns.base import Zone
 from libcloud.dns.types import ZoneDoesNotExistError, ZoneAlreadyExistsError
+from libcloud.dns.types import RecordDoesNotExistError, RecordAlreadyExistsError
 from libcloud.dns.providers import get_driver
 
 from dnsmadeeasy.driver import DNSMadeEasyDNSDriver, \
@@ -159,3 +160,101 @@ def DNSMadeEasyDNSDriver_create_zone1(d):
     zone = d.create_zone(domain)
     with assert_exception(ZoneAlreadyExistsError):
         d.create_zone(domain)
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_list_records0(d):
+    """Tests that DNSMadeEasyDNSDriver.list_records returns a sequence"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    assert isinstance(d.list_records(zone), types.ListType), \
+        'DNSMadeEasyDNSDriver.list_records did not return a list'
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_get_record0(d):
+    """Tests that DNSMadeEasyDNSDriver.get_record fails for invalid zone ID"""
+    with assert_exception(ZoneDoesNotExistError):
+        d.get_record('__invalid__', '__invalid__')
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_get_record1(d):
+    """Tests that DNSMadeEasyDNSDriver.get_record fails for invalid record ID"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    with assert_exception(RecordDoesNotExistError):
+        d.get_record(zone.id, '__invalid__')
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_get_record2(d):
+    """Tests that DNSMadeEasyDNSDriver.get_record returns the same value as
+    create_record"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    record1 = d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+        extra = {'ttl': 1000})
+    record2 = d.get_record(zone.id, record1.id)
+
+    for a in ('id', 'name', 'type', 'data', 'extra'):
+        assert_eq(
+            getattr(record1, a),
+            getattr(record2, a))
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_Zone_create_record0(d):
+    """Tests that DNSMadeEasyDNSDriver.create_record returns a valid record"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    record = d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+        extra = {'ttl': 1000})
+
+    assert any(r.data == record.data for r in zone.list_records()), \
+        'The newly created record was not included in the record listing'
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_create_record1(d):
+    """Tests that DNSMadeEasyDNSDriver.create_record fails when creating an
+    already existing record"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    record = d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+        extra = {'ttl': 1000})
+    with assert_exception(RecordAlreadyExistsError):
+        d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+            extra = {'ttl': 1000})
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_delete_record0(d):
+    """Tests that DNSMadeEasyDNSDriver.delete_record succeeds for valid
+    record"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    record = d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+        extra = {'ttl': 1000})
+
+    d.delete_record(record)
+
+
+@drivertest
+def DNSMadeEasyDNSDriver_delete_record1(d):
+    """Tests that DNSMadeEasyDNSDriver.delete_record fails for invalid record"""
+    domain = next(domain_names)
+
+    zone = d.create_zone(domain)
+    record = d.create_record('subdomain', zone, type = 'A', data = '1.1.1.1',
+        extra = {'ttl': 1000})
+
+    d.delete_record(record)
+    with assert_exception(RecordDoesNotExistError):
+        d.delete_record(record)
