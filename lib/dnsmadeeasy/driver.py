@@ -264,11 +264,20 @@ class DNSMadeEasyDNSDriver(DNSDriver):
                 raise
 
     def create_record(self, name, zone, type, data, extra = None):
+        if not extra:
+            extra = {}
+        if 'ttl' not in extra:
+            extra['ttl'] = 3600
+        if type == 'MX' and 'mxLevel' not in extra:
+            if 'priority' in extra:
+                extra['mxLevel'] = extra['priority']
+            else:
+                extra['mxLevel'] = 1
         record = {
             'name': name,
             'type': type,
             'value': data}
-        record.update(extra or {})
+        record.update(extra)
 
         r = self._api.dns.managed(zone.id).records.POST(
             data = json.dumps(record),
