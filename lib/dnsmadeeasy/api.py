@@ -15,6 +15,7 @@
 # this program. If not, see <http://www.gnu.org/licenses/>.
 
 import collections
+import locale
 import hammock
 import hashlib
 import hmac
@@ -44,6 +45,7 @@ class Headers(collections.Mapping):
         :return: a timestamp
         :rtype: time.time
         """
+        locale.setlocale(locale.LC_TIME, "C")
         return time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime())
 
     def get_hash(self, t):
